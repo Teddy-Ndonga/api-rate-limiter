@@ -4,7 +4,12 @@
   "description": "A Redis-backed API rate limiting service built with Node.js and TypeScript.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "dev": "tsx watch src/server.ts",
+  "build": "tsc",
+  "start": "node dist/server.js",
+  "test": "vitest",
+  "lint": "eslint .",
+  "format": "prettier --write ."
   },
   "repository": {
     "type": "git",
