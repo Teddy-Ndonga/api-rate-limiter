@@ -1,0 +1,30 @@
+{
+  "name": "api-rate-limiter",
+  "version": "1.0.0",
+  "description": "A Redis-backed API rate limiting service built with Node.js and TypeScript.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Teddy-Ndonga/api-rate-limiter.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Teddy-Ndonga/api-rate-limiter/issues"
+  },
+  "homepage": "https://github.com/Teddy-Ndonga/api-rate-limiter#readme",
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
