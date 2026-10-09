@@ -9,7 +9,8 @@
   "start": "node dist/server.js",
   "test": "vitest",
   "lint": "eslint .",
-  "format": "prettier --write ."
+  "format": "prettier --write .",
+  "redis:playground": "tsx scripts/redis-playground.ts"
   },
   "repository": {
     "type": "git",
