@@ -1,9 +1,12 @@
 import type { Request, Response, NextFunction } from 'express';
 import type { RedisClientType } from 'redis';
 
+type FailureMode = 'open' | 'closed';
+
 interface RateLimiterOptions {
   windowMs: number;
   maxRequests: number;
+  failureMode?: FailureMode;
 }
 
 const RATE_LIMIT_SCRIPT = `
@@ -22,7 +25,7 @@ export function rateLimiter(
   redis: RedisClientType,
   options: RateLimiterOptions,
 ) {
-  const { windowMs, maxRequests } = options;
+  const { windowMs, maxRequests, failureMode = 'closed' } = options;
 
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -41,7 +44,9 @@ export function rateLimiter(
       res.setHeader('X-RateLimit-Remaining', remaining);
 
       if (current > maxRequests) {
-        res.setHeader('Retry-After', Math.max(1, Math.ceil(ttl / 1000)));
+        const retryAfter = Math.max(1, Math.ceil(ttl / 1000));
+
+        res.setHeader('Retry-After', retryAfter);
 
         res.setHeader(
           'X-RateLimit-Reset',
@@ -51,7 +56,7 @@ export function rateLimiter(
         res.status(429).json({
           error: 'Too Many Requests',
           message: 'You have exceeded the request limit. Try again later.',
-          retryAfter: Math.max(1, Math.ceil(ttl / 1000)),
+          retryAfter,
         });
 
         return;
@@ -59,7 +64,17 @@ export function rateLimiter(
 
       next();
     } catch (error) {
-      next(error);
+      console.error('Rate limiter Redis error:', error);
+
+      if (failureMode === 'open') {
+        next();
+        return;
+      }
+      res.status(503).json({
+        error: 'Service Unavailable',
+        message:
+          'Rate limiting is temporarily unavailable. Please try again later.',
+      });
     }
   };
 }

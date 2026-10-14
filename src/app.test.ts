@@ -1,9 +1,18 @@
-import { beforeAll, afterAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  beforeAll,
+  afterAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  afterEach,
+} from 'vitest';
 import request from 'supertest';
 import app from './app.js';
 import redisClient from './redis/client.js';
 import express from 'express';
 import { rateLimiter } from './middleware/rateLimiter.js';
+import { vi } from 'vitest';
 
 async function clearRateLimitKeys() {
   const keys: string[] = [];
@@ -20,7 +29,11 @@ async function clearRateLimitKeys() {
   }
 }
 
-function createLimiterTestApp(windowMs: number, maxRequests: number) {
+function createLimiterTestApp(
+  windowMs: number,
+  maxRequests: number,
+  failureMode: 'open' | 'closed' = 'closed',
+) {
   const testApp = express();
 
   // Trust forwarded IPs for isolated tests only.
@@ -28,7 +41,7 @@ function createLimiterTestApp(windowMs: number, maxRequests: number) {
 
   testApp.get(
     '/api/test',
-    rateLimiter(redisClient, { windowMs, maxRequests }),
+    rateLimiter(redisClient, { windowMs, maxRequests, failureMode }),
     (_req, res) => {
       res.json({ message: 'Request successful' });
     },
@@ -51,6 +64,10 @@ afterAll(async () => {
   if (redisClient.isOpen) {
     await redisClient.quit();
   }
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('Express app', () => {
@@ -133,5 +150,35 @@ describe('IP-based rate limiter', () => {
       .set('X-Forwarded-For', secondIp);
 
     expect(otherIpRequest.status).toBe(200);
+  });
+
+  it('should return 503 when Redis fails in fail-closed mode', async () => {
+    const testApp = createLimiterTestApp(60_000, 5, 'closed');
+
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(redisClient, 'eval').mockRejectedValueOnce(
+      new Error('Redis unavailable'),
+    );
+
+    const response = await request(testApp).get('/api/test');
+
+    expect(response.status).toBe(503);
+    expect(response.body.error).toBe('Service Unavailable');
+  });
+
+  it('should allow requests when Redis fails in fail-open mode', async () => {
+    const testApp = createLimiterTestApp(60_000, 5, 'open');
+
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(redisClient, 'eval').mockRejectedValueOnce(
+      new Error('Redis unavailable'),
+    );
+
+    const response = await request(testApp).get('/api/test');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      message: 'Request successful',
+    });
   });
 });
